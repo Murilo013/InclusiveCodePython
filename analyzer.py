@@ -20,17 +20,28 @@ def clone_repo(repo_url):
     return temp_dir
 
 
-def read_readme(repo_path):
-    for file in os.listdir(repo_path):
-        if file.lower().startswith("readme"):
-            readme_path = os.path.join(repo_path, file)
-            
-            with open(readme_path, "r", encoding="utf-8", errors="ignore") as f:
-                content = f.read()
+def read_web_files(repo_path):
+    web_files = []
+    for root, dirs, files in os.walk(repo_path):
+        for file in files:
+            if file.lower().endswith(('.html', '.jsx', '.tsx')):
+                file_path = os.path.join(root, file)
                 
-            return content[:1000]  # retorna apenas primeiros 1000 caracteres
+                try:
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                    
+                    # Remove o caminho base do repositório do nome do arquivo
+                    relative_path = os.path.relpath(file_path, repo_path)
+                    
+                    web_files.append({
+                        "filename": relative_path,
+                        "content": content
+                    })
+                except Exception as e:
+                    continue
     
-    return None
+    return web_files
 
 
 def remove_readonly(func, path, exc_info):
@@ -46,21 +57,21 @@ if __name__ == "__main__":
 
         time.sleep(1)
 
-        readme_content = read_readme(repo_path)
+        web_files = read_web_files(repo_path)
 
         time.sleep(1)
 
         shutil.rmtree(repo_path, onerror=remove_readonly)
         
-        if readme_content:
+        if web_files:
             print(json.dumps({
                 "status": "success",
-                "readme_preview": readme_content
+                "web_files": web_files
             }))
         else:
             print(json.dumps({
                 "status": "success",
-                "message": "README não encontrado"
+                "message": "Nenhum arquivo web (.html, .jsx, .tsx) encontrado"
             }))
         
     except Exception as e:
