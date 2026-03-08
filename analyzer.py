@@ -7,16 +7,22 @@ import subprocess
 import stat
 import time
 import re
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
+from openai import OpenAI
 
 MAX_FILE_SIZE = 8000
+
+
+def log(msg):
+    print(msg, file=sys.stderr)
 
 
 def clone_repo(repo_url):
     temp_dir = tempfile.mkdtemp()
 
-    print("Clonando repositório...")
+    log("Clonando repositório...")
 
     subprocess.run(
         ["git", "clone", repo_url, temp_dir],
@@ -47,7 +53,7 @@ def read_web_files(repo_path):
                     })
 
                 except Exception:
-                    print("Erro lendo arquivo:", file_path)
+                    log(f"Erro lendo arquivo: {file_path}")
 
     return web_files
 
@@ -58,7 +64,6 @@ def extract_json_from_text(text):
     ou markdown ```json
     """
 
-    # remove blocos markdown
     text = text.replace("```json", "").replace("```", "")
 
     try:
@@ -81,9 +86,7 @@ def analyze_accessibility_tags(web_files, confirm_mode=False):
     if not api_key:
         raise Exception("GEMINI_API_KEY não encontrada no .env")
 
-    genai.configure(api_key=api_key)
-
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    client = genai.Client(api_key=api_key)
 
     system_prompt = """
 Você é um auditor de acessibilidade.
@@ -105,7 +108,7 @@ Retorne SOMENTE JSON válido neste formato:
   "issues": [
     {
       "filename": "string",
-      "line": number | null,
+      "line": number,
       "snippet": "string",
       "issue": "string"
     }
@@ -122,23 +125,15 @@ Retorne SOMENTE JSON válido neste formato:
 
     prompt = "\n".join(prompt_parts)
 
-    print("\n====== PROMPT ENVIADO ======\n")
-    print(prompt[:3000])
-    print("\n============================\n")
+    log("Enviando requisição para Gemini...")
 
-    if confirm_mode:
-        ans = input("Enviar prompt para IA? [y/N]: ")
-        if ans.lower() != "y":
-            print("Cancelado pelo usuário")
-            return None
-
-    print("Enviando requisição para Gemini...")
-
-    response = model.generate_content(
-        prompt,
-        generation_config={
-            "response_mime_type": "application/json",
-            "response_schema": {
+    response = client.models.generate_content(
+        model="gemini-3.1-flash-lite-preview",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            max_output_tokens=8192,
+            response_schema={
                 "type": "object",
                 "properties": {
                     "summary": {"type": "string"},
@@ -159,14 +154,10 @@ Retorne SOMENTE JSON válido neste formato:
                 },
                 "required": ["summary", "non_conforming_count", "issues"]
             }
-        }
+        )
     )
 
     text = response.text
-
-    print("\n====== RESPOSTA GEMINI ======\n")
-    print(text[:2000])
-    print("\n==============================\n")
 
     # tenta converter diretamente
     try:
@@ -174,15 +165,14 @@ Retorne SOMENTE JSON válido neste formato:
         return parsed
 
     except json.JSONDecodeError:
-        print("JSON direto falhou, tentando extrair JSON...")
+        log("JSON direto falhou, tentando extrair JSON...")
 
-    # fallback
     parsed = extract_json_from_text(text)
 
     if parsed:
         return parsed
 
-    print("Resposta da IA não é JSON válido")
+    log("Resposta da IA não é JSON válido")
 
     return {
         "summary": "Gemini did not return valid JSON",
@@ -229,7 +219,7 @@ if __name__ == "__main__":
 
         web_files = read_web_files(repo_path)
 
-        print("Arquivos encontrados:", len(web_files))
+        log(f"Arquivos encontrados: {len(web_files)}")
 
         accessibility_report = analyze_accessibility_tags(
             web_files,
@@ -240,16 +230,19 @@ if __name__ == "__main__":
 
         shutil.rmtree(repo_path, onerror=remove_readonly)
 
-        print("\nResultado final:")
-
-        print(json.dumps({
+        result = {
             "status": "success",
             "accessibility_report": accessibility_report
-        }, indent=2))
+        }
+
+        # JSON final vai para stdout
+        print(json.dumps(result, indent=2))
 
     except Exception as e:
 
-        print(json.dumps({
+        error_result = {
             "status": "error",
             "message": str(e)
-        }))
+        }
+
+        print(json.dumps(error_result))

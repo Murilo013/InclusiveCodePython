@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from analyzer import analyze_accessibility_tags
 import subprocess
 import tempfile
 import shutil
@@ -21,6 +22,8 @@ def clone_repo(repo_url):
     return temp_dir
 
 
+MAX_FILE_SIZE = 8000
+
 def read_web_files(repo_path):
     web_files = []
     for root, dirs, files in os.walk(repo_path):
@@ -30,7 +33,7 @@ def read_web_files(repo_path):
                 
                 try:
                     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        content = f.read()
+                        content = f.read()[:MAX_FILE_SIZE]
                     
                     # Remove o caminho base do repositório do nome do arquivo
                     relative_path = os.path.relpath(file_path, repo_path)
@@ -65,16 +68,18 @@ def analyze(data: dict):
 
         shutil.rmtree(repo_path, onerror=remove_readonly)
 
-        if web_files:
-            return {
-                "status": "success",
-                "web_files": web_files
-            }
-        else:
+        if not web_files:
             return {
                 "status": "success",
                 "message": "Nenhum arquivo web (.html, .jsx, .tsx) encontrado"
             }
+
+        result = analyze_accessibility_tags(web_files)
+
+        return {
+            "status": "success",
+            "analysis": result
+        }
 
     except Exception as e:
         return {
