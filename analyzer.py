@@ -12,8 +12,6 @@ from google.genai import types
 from dotenv import load_dotenv
 from openai import OpenAI
 
-MAX_FILE_SIZE = 8000
-
 
 def log(msg):
     print(msg, file=sys.stderr)
@@ -38,12 +36,12 @@ def read_web_files(repo_path):
     for root, dirs, files in os.walk(repo_path):
         for file in files:
 
-            if file.lower().endswith((".html", ".jsx", ".tsx")):
+            if file.lower().endswith((".html", ".jsx", ".tsx", ".css", ".php")):
                 file_path = os.path.join(root, file)
 
                 try:
                     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        content = f.read()[:MAX_FILE_SIZE]
+                        content = f.read()
 
                     relative_path = os.path.relpath(file_path, repo_path)
 
@@ -91,6 +89,8 @@ def analyze_accessibility_tags(web_files, confirm_mode=False):
     system_prompt = """
 Você é um auditor de acessibilidade.
 
+Responda em Português.
+
 Analise os arquivos web fornecidos e detecte problemas como:
 
 - imagens sem atributo alt
@@ -110,17 +110,23 @@ Retorne SOMENTE JSON válido neste formato:
       "filename": "string",
       "line": number,
       "snippet": "string",
-      "issue": "string"
+            "issue": "string",
+            "improvement": "string"
     }
   ]
 }
+
+Regras obrigatórias para cada item em issues:
+- descreva a falha em issue
+- em improvement, retorne o trecho de código corrigido para aquela falha específica
+- improvement deve ser um patch local do erro, sem texto explicativo extra
 """
 
     prompt_parts = [system_prompt, "\nFiles:\n"]
 
     for f in web_files:
         prompt_parts.append(
-            f"\n---FILE: {f['filename']}---\n{f['content']}"
+            f"\nArquivo: {f['filename']}\nCodigo:\n{f['content']}\n"
         )
 
     prompt = "\n".join(prompt_parts)
@@ -146,9 +152,10 @@ Retorne SOMENTE JSON válido neste formato:
                                 "filename": {"type": "string"},
                                 "line": {"type": "number"},
                                 "snippet": {"type": "string"},
-                                "issue": {"type": "string"}
+                                "issue": {"type": "string"},
+                                "improvement": {"type": "string"}
                             },
-                            "required": ["filename", "snippet", "issue"]
+                            "required": ["filename", "snippet", "issue", "improvement"]
                         }
                     }
                 },

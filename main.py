@@ -22,18 +22,16 @@ def clone_repo(repo_url):
     return temp_dir
 
 
-MAX_FILE_SIZE = 8000
-
 def read_web_files(repo_path):
     web_files = []
     for root, dirs, files in os.walk(repo_path):
         for file in files:
-            if file.lower().endswith(('.html', '.jsx', '.tsx')):
+            if file.lower().endswith((".html", ".jsx", ".tsx", ".css", ".php")):
                 file_path = os.path.join(root, file)
                 
                 try:
                     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        content = f.read()[:MAX_FILE_SIZE]
+                        content = f.read()
                     
                     # Remove o caminho base do repositório do nome do arquivo
                     relative_path = os.path.relpath(file_path, repo_path)
@@ -71,7 +69,7 @@ def analyze(data: dict):
         if not web_files:
             return {
                 "status": "success",
-                "message": "Nenhum arquivo web (.html, .jsx, .tsx) encontrado"
+                "message": "Nenhum arquivo web (.html, .jsx, .tsx, .css, .php) encontrado"
             }
 
         result = analyze_accessibility_tags(web_files)
