@@ -79,10 +79,10 @@ def analyze_accessibility_tags(web_files, confirm_mode=False):
 
     load_dotenv()
 
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY_SECONDARY")
 
     if not api_key:
-        raise Exception("GEMINI_API_KEY não encontrada no .env")
+        raise Exception("GEMINI_API_KEY_SECONDARY não encontrada no .env")
 
     client = genai.Client(api_key=api_key)
 
@@ -110,14 +110,19 @@ Retorne SOMENTE JSON válido neste formato:
       "filename": "string",
       "line": number,
       "snippet": "string",
-            "issue": "string",
-            "improvement": "string"
+      "issue": "string",
+      "severity": "CRÍTICO | MODERADO | BAIXO",
+      "improvement": "string"
     }
   ]
 }
 
 Regras obrigatórias para cada item em issues:
 - descreva a falha em issue
+- classifique a gravidade em severity usando exatamente um dos valores: CRÍTICO, MODERADO ou BAIXO
+  - CRÍTICO: impede completamente o uso por pessoas com deficiência (ex: imagem sem alt, input sem label)
+  - MODERADO: dificulta significativamente o uso, mas há contorno parcial (ex: hierarquia incorreta de headings)
+  - BAIXO: má prática que tem impacto menor na experiência acessível (ex: link com texto genérico)
 - em improvement, retorne o trecho de código corrigido para aquela falha específica
 - improvement deve ser um patch local do erro, sem texto explicativo extra
 """
@@ -153,9 +158,13 @@ Regras obrigatórias para cada item em issues:
                                 "line": {"type": "number"},
                                 "snippet": {"type": "string"},
                                 "issue": {"type": "string"},
+                                "severity": {
+                                    "type": "string",
+                                    "enum": ["CRÍTICO", "MODERADO", "BAIXO"]
+                                },
                                 "improvement": {"type": "string"}
                             },
-                            "required": ["filename", "snippet", "issue", "improvement"]
+                            "required": ["filename", "snippet", "issue", "severity", "improvement"]
                         }
                     }
                 },
