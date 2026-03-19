@@ -108,11 +108,12 @@ Retorne SOMENTE JSON válido neste formato:
   "issues": [
     {
       "filename": "string",
-      "line": number,
+            "line": number,
       "snippet": "string",
       "issue": "string",
       "severity": "CRÍTICO | MODERADO | BAIXO",
-      "improvement": "string"
+            "improvement": "string",
+            "evidence_urls": ["string"]
     }
   ]
 }
@@ -125,6 +126,7 @@ Regras obrigatórias para cada item em issues:
   - BAIXO: má prática que tem impacto menor na experiência acessível (ex: link com texto genérico)
 - em improvement, retorne o trecho de código corrigido para aquela falha específica
 - improvement deve ser um patch local do erro, sem texto explicativo extra
+ - inclua um campo `evidence_urls`: lista de URLs usadas como referência/evidência para formar a resposta; se não houver, retorne uma lista vazia
 """
 
     prompt_parts = [system_prompt, "\nFiles:\n"]
@@ -163,8 +165,13 @@ Regras obrigatórias para cada item em issues:
                                     "enum": ["CRÍTICO", "MODERADO", "BAIXO"]
                                 },
                                 "improvement": {"type": "string"}
+                                ,
+                                "evidence_urls": {
+                                    "type": "array",
+                                    "items": {"type": "string"}
+                                }
                             },
-                            "required": ["filename", "snippet", "issue", "severity", "improvement"]
+                            "required": ["filename", "snippet", "issue", "severity", "improvement", "evidence_urls"]
                         }
                     }
                 },
