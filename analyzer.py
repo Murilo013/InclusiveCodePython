@@ -56,6 +56,10 @@ def read_web_files(repo_path):
     return web_files
 
 
+def is_web_repository(web_files):
+    return len(web_files) > 0
+
+
 def extract_json_from_text(text):
     """
     Tenta extrair JSON de uma resposta que pode conter texto extra
@@ -124,9 +128,9 @@ Regras obrigatórias para cada item em issues:
   - CRÍTICO: impede completamente o uso por pessoas com deficiência (ex: imagem sem alt, input sem label)
   - MODERADO: dificulta significativamente o uso, mas há contorno parcial (ex: hierarquia incorreta de headings)
   - BAIXO: má prática que tem impacto menor na experiência acessível (ex: link com texto genérico)
-- em improvement, retorne o trecho de código corrigido para aquela falha específica
-- improvement deve ser um patch local do erro, sem texto explicativo extra
- - inclua um campo `evidence_urls`: lista de URLs usadas como referência/evidência para formar a resposta; se não houver, retorne uma lista vazia
+  - em improvement, retorne o trecho de código corrigido para aquela falha específica
+  - improvement deve ser um patch local do erro, sem texto explicativo extra
+  - inclua um campo `evidence_urls`: lista de URLs usadas como referência/evidência para formar a resposta; se não houver, retorne uma lista vazia
 """
 
     prompt_parts = [system_prompt, "\nFiles:\n"]
@@ -241,6 +245,15 @@ if __name__ == "__main__":
         time.sleep(1)
 
         web_files = read_web_files(repo_path)
+
+        if not is_web_repository(web_files):
+            shutil.rmtree(repo_path, onerror=remove_readonly)
+            error_result = {
+                "status": "error",
+                "message": "erro de analise, repositorio nao corresponde a uma pagina web"
+            }
+            print(json.dumps(error_result))
+            sys.exit(1)
 
         log(f"Arquivos encontrados: {len(web_files)}")
 
