@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from analyzer import analyze_accessibility_tags
+from analyzer import analyze_accessibility_tags, is_web_repository
 import subprocess
 import tempfile
 import shutil
@@ -66,10 +66,10 @@ def analyze(data: dict):
 
         shutil.rmtree(repo_path, onerror=remove_readonly)
 
-        if not web_files:
+        if not is_web_repository(web_files):
             return {
-                "status": "success",
-                "message": "Nenhum arquivo web (.html, .jsx, .tsx, .css, .php) encontrado"
+                "status": "error",
+                "message": "erro de analise, repositorio nao corresponde a uma pagina web"
             }
 
         result = analyze_accessibility_tags(web_files)
